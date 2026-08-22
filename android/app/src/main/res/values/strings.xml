@@ -17,6 +17,7 @@
     <string name="vault_keyfile_selected">Key file: %1$s</string>
     <string name="vault_keyfile_optional">Key file is optional</string>
     <string name="vault_password_hint">Master password</string>
+    <string name="vault_password_use_action">Use master password</string>
     <string name="vault_unlock_action">Unlock</string>
     <string name="vault_unlock_progress">Opening vault…</string>
     <string name="vault_lock_action">Lock</string>
