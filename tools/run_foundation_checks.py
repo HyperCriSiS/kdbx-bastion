@@ -16,6 +16,8 @@ COMMANDS = [
     [sys.executable, "tools/check_rust_core_policy.py"],
     [sys.executable, "tools/check_android_jni_policy.py", "--self-test"],
     [sys.executable, "tools/check_android_jni_policy.py"],
+    [sys.executable, "tools/check_android_vault_browse_policy.py", "--self-test"],
+    [sys.executable, "tools/check_android_vault_browse_policy.py"],
     [sys.executable, "tools/validate_kdbx_fixtures.py"],
     [sys.executable, "tools/verify_negative_kdbx_derivations.py"],
 ]
