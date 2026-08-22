@@ -44,35 +44,78 @@ fi
 echo "Android production Compose shell: PASS"
 
 # Exercise the real production Open action rather than only proving Activity
-# launch. Compose semantics are exposed through UIAutomator; tapping the button
-# must hand control to Android's DocumentsUI SAF picker.
+# launch. Prefer the visible Compose semantics label, but tolerate UIAutomator
+# versions that expose Material buttons only by role/class. The selected action
+# is still verified by requiring an actual transition into Android DocumentsUI.
 ui_dump_device="/sdcard/kdbx-fortress-ui.xml"
 ui_dump_host="${RUNNER_TEMP:-/tmp}/kdbx-fortress-ui.xml"
 adb shell uiautomator dump "$ui_dump_device" >/dev/null
 adb exec-out cat "$ui_dump_device" > "$ui_dump_host"
 
-read -r open_x open_y < <(
+if ! coordinates=$(
   python3 - "$ui_dump_host" <<'PY'
 import re
 import sys
 import xml.etree.ElementTree as ET
 
+BOUNDS = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
 root = ET.parse(sys.argv[1]).getroot()
-for node in root.iter("node"):
-    if node.attrib.get("text") != "Open vault":
-        continue
-    bounds = node.attrib.get("bounds", "")
-    match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", bounds)
+
+
+def center(node):
+    match = BOUNDS.fullmatch(node.attrib.get("bounds", ""))
     if match is None:
-        continue
+        return None
     left, top, right, bottom = map(int, match.groups())
-    print((left + right) // 2, (top + bottom) // 2)
+    if right <= left or bottom <= top:
+        return None
+    return (left + right) // 2, (top + bottom) // 2, top
+
+
+def normalized(value):
+    return " ".join((value or "").split()).casefold()
+
+# First choice: explicit text/content description from Compose semantics.
+for node in root.iter("node"):
+    labels = (
+        normalized(node.attrib.get("text")),
+        normalized(node.attrib.get("content-desc")),
+    )
+    if "open vault" not in labels:
+        continue
+    position = center(node)
+    if position is not None:
+        print(position[0], position[1])
+        raise SystemExit(0)
+
+# Some emulator/UIAutomator combinations expose Compose Material buttons only
+# by accessibility role. On the initial screen, Open is the first enabled
+# Material button vertically. DocumentsUI verification below prevents a false
+# PASS if this fallback ever picks the wrong action.
+buttons = []
+for node in root.iter("node"):
+    if node.attrib.get("class") != "android.widget.Button":
+        continue
+    if node.attrib.get("enabled") == "false":
+        continue
+    position = center(node)
+    if position is not None:
+        buttons.append(position)
+
+if buttons:
+    x, y, _ = min(buttons, key=lambda item: item[2])
+    print(x, y)
     raise SystemExit(0)
 
-raise SystemExit("Open vault UI node not found")
+raise SystemExit(1)
 PY
-)
+); then
+  echo "Open vault UI node not found; UI hierarchy follows." >&2
+  cat "$ui_dump_host" >&2 || true
+  exit 1
+fi
 
+read -r open_x open_y <<<"$coordinates"
 adb shell input tap "$open_x" "$open_y"
 
 documents_ui=""
