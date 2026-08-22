@@ -62,7 +62,7 @@ class VaultSessionController(
 
     fun unlock(
         vaultDocument: VaultDocumentSelection,
-        password: ByteArray,
+        password: ByteArray?,
         keyFile: VaultDocumentSelection?,
     ) {
         val token = beginOperation()
@@ -74,7 +74,7 @@ class VaultSessionController(
             var newHandle = 0L
 
             try {
-                if (password.size > NativeBridge.MAX_PASSWORD_BYTES) {
+                if (password != null && password.size > NativeBridge.MAX_PASSWORD_BYTES) {
                     throw BrowserFailure(VaultBrowserFailure.CredentialTooLarge)
                 }
 
@@ -122,7 +122,7 @@ class VaultSessionController(
                 publish(token, VaultBrowserState.Failure(VaultBrowserFailure.CoreFailure))
             } finally {
                 if (newHandle > 0L) safeLock(newHandle)
-                password.fill(0)
+                password?.fill(0)
                 keyFileBytes?.fill(0)
                 vaultBytes?.fill(0)
             }
