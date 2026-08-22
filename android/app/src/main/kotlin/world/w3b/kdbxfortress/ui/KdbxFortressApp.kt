@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -63,7 +64,7 @@ fun KdbxFortressApp(
     onOpenVault: () -> Unit,
     onSelectKeyFile: () -> Unit,
     onClearKeyFile: () -> Unit,
-    onUnlockVault: (ByteArray) -> Unit,
+    onUnlockVault: (ByteArray?) -> Unit,
     onOpenGroup: (NativeBridge.MetadataId) -> Unit,
     onLockVault: () -> Unit,
     onCreateVault: () -> Unit,
@@ -158,7 +159,7 @@ private fun VaultScreen(
     onOpenVault: () -> Unit,
     onSelectKeyFile: () -> Unit,
     onClearKeyFile: () -> Unit,
-    onUnlockVault: (ByteArray) -> Unit,
+    onUnlockVault: (ByteArray?) -> Unit,
     onOpenGroup: (NativeBridge.MetadataId) -> Unit,
     onLockVault: () -> Unit,
     onCreateVault: () -> Unit,
@@ -199,11 +200,12 @@ private fun VaultUnlock(
     onOpenVault: () -> Unit,
     onSelectKeyFile: () -> Unit,
     onClearKeyFile: () -> Unit,
-    onUnlockVault: (ByteArray) -> Unit,
+    onUnlockVault: (ByteArray?) -> Unit,
     onCreateVault: () -> Unit,
     createVaultEnabled: Boolean,
 ) {
     val passwordEditor = remember { mutableStateOf<EditText?>(null) }
+    val usePassword = remember(credentialClearEpoch) { mutableStateOf(true) }
     val loading = browserState is VaultBrowserState.Loading
 
     ScreenBody {
@@ -262,6 +264,21 @@ private fun VaultUnlock(
                 style = MaterialTheme.typography.bodySmall,
             )
 
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Checkbox(
+                    checked = usePassword.value,
+                    onCheckedChange = { checked ->
+                        usePassword.value = checked
+                        if (!checked) passwordEditor.value?.text?.clear()
+                    },
+                    enabled = !loading,
+                )
+                Text(text = stringResource(R.string.vault_password_use_action))
+            }
+
             AndroidView(
                 modifier = Modifier.fillMaxWidth(),
                 factory = { context ->
@@ -282,16 +299,23 @@ private fun VaultUnlock(
                         editor.text?.clear()
                         editor.tag = credentialClearEpoch
                     }
+                    editor.isEnabled = usePassword.value && !loading
+                    if (!usePassword.value) editor.text?.clear()
                     passwordEditor.value = editor
                 },
             )
 
             Button(
                 onClick = {
-                    val password = passwordEditor.value?.consumeUtf8Bytes() ?: ByteArray(0)
+                    val password = if (usePassword.value) {
+                        passwordEditor.value?.consumeUtf8Bytes() ?: ByteArray(0)
+                    } else {
+                        null
+                    }
                     onUnlockVault(password)
                 },
-                enabled = nativeReady && !loading,
+                enabled = nativeReady && !loading &&
+                    (usePassword.value || selectedKeyFileName != null),
             ) {
                 Text(text = stringResource(R.string.vault_unlock_action))
             }
