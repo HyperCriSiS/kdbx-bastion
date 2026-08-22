@@ -43,6 +43,9 @@ REQUIRED_ACCESS_FRAGMENTS = (
 )
 REQUIRED_UI_FRAGMENTS = (
     "AndroidView(",
+    "Checkbox(",
+    "usePassword",
+    "onUnlockVault: (ByteArray?) -> Unit",
     "isSaveEnabled = false",
     "consumeUtf8Bytes()",
     "chars.fill('\\u0000')",
@@ -57,9 +60,10 @@ REQUIRED_ACTIVITY_FRAGMENTS = (
 REQUIRED_SESSION_FRAGMENTS = (
     "private val operationEpoch = AtomicLong(0L)",
     "private var foreground = true",
+    "password: ByteArray?",
     "if (!isCurrent(token))",
     "safeLock(newHandle)",
-    "password.fill(0)",
+    "password?.fill(0)",
     "keyFileBytes?.fill(0)",
     "vaultBytes?.fill(0)",
     "NativeBridge.lockAllVaults()",
@@ -170,8 +174,8 @@ def self_test(root: Path) -> None:
     expect_failure(mutated, "master-password UI must retain: isSaveEnabled = false")
 
     mutated = dict(sources)
-    mutated["session"] = mutated["session"].replace("password.fill(0)", "// removed", 1)
-    expect_failure(mutated, "vault session controller must retain: password.fill(0)")
+    mutated["session"] = mutated["session"].replace("password?.fill(0)", "// removed", 1)
+    expect_failure(mutated, "vault session controller must retain: password?.fill(0)")
 
     mutated = dict(sources)
     mutated["activity"] = mutated["activity"].replace(
