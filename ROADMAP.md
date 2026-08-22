@@ -10,7 +10,7 @@ The acceptance criteria and scope in this file are normative unless changed deli
 
 ## Current status
 
-Status: **Phase 1 in progress. Phase 0 is complete. The production Android `:app`, shared `:native-bridge` and CI-only `:smoke-app` modules are established; the Material 3/Compose shell, scoped SAF document access and the first bounded metadata-only Rust/JNI read boundary are implemented. Adapter ABI v4 adds one versioned `nativeReadMetadata` byte-array operation to the five proven lifecycle exports. Vault/group/entry summaries are size-bounded, UUID-addressed and deliberately exclude password values, OTP material, notes/custom secret fields and attachment content. The next Phase-1 tranche is production group/entry browsing over these summaries without duplicating the decrypted database model in Kotlin.**
+Status: **Phase 1 in progress. Phase 0 is complete. The production Android `:app`, shared `:native-bridge` and CI-only `:smoke-app` modules are established; the Material 3/Compose shell, scoped SAF document access, the bounded metadata-only Rust/JNI read boundary, and production group/entry browsing are implemented. Adapter ABI v4 still exposes exactly one versioned `nativeReadMetadata` byte-array operation in addition to the five proven lifecycle exports. Production unlock preserves absent versus empty password credentials, supports optional key files, keeps only an opaque Rust handle plus the currently displayed bounded summaries in Kotlin, and fail-closes across background/lifecycle races. The next Phase-1 tranche is Rust-backed search/filtering without widening the metadata channel into secret retrieval.**
 
 Roadmap baseline after the corpus-validation tranche: `main` at `ba1b9ef41b06203db7b125086dd9455790a1bb5f`, with the authenticated XML adversarial closure validated on PR #21 before merge.
 
@@ -22,7 +22,7 @@ Roadmap baseline after the corpus-validation tranche: `main` at `ba1b9ef41b06203
 - `main` is protected; recent work uses short-lived feature/test branches and pull requests before integration.
 - There are currently no open repository issues and no published releases.
 - The stable-handle foundation provides a positive 63-bit FFI-safe opaque `VaultHandle` and an internal bounded generation-checked registry. Handles are not pointers, raw values are redacted from `Debug`, lock/lock-all immediately drop Rust-owned values, stale handles cannot revive after slot reuse, generation exhaustion retires a slot rather than wrapping, and capacity is explicit. The registry is wired to private Rust-owned KDBX `Database` sessions through `VaultCore` and exposed to Android through the bounded JNI lifecycle plus the ABI-v4 metadata-summary channel; decrypted database objects and registry internals never cross JNI.
-- The production Android `:app` module and shared `:native-bridge` module build in CI, and the shared bridge now has the bounded metadata-only read API; production open/browse UI wiring, secret retrieval, write path, Autofill implementation and release artifacts remain open.
+- The production Android `:app` module and shared `:native-bridge` module build in CI, and production can now select a KDBX document/key file through SAF, unlock through the bounded Rust lifecycle API, and browse real groups/entries through metadata summaries; search/filtering, explicit secret retrieval, write path, Autofill implementation and release artifacts remain open.
 
 Known engine constraints remain explicit: the pinned engine is currently used for read validation, not as an unconditional production/write commitment. KDBX feature/version coverage, owned secret buffers and unsupported combinations must be contained by Fortress-owned adapters, limits and validation gates before production use.
 
@@ -104,7 +104,12 @@ Goal: prove a bounded, interoperable and auditable Rust KDBX core before exposin
   - [x] Add ABI-v4 `nativeReadMetadata` as the only new JNI export, using the versioned `KFM1` binary envelope with a 256 KiB response ceiling and sanitized status-only failures.
   - [x] Keep password values, OTP material, notes/custom secret fields and attachment names/content outside the metadata model; enforce the exact six-export JNI allowlist and metadata-only source policy.
   - [x] Prove Vault → Root → Group → Entry metadata traversal through Kotlin/JNI/Rust on the Android emulator before the existing foreground → background `lock-all` lifecycle proof.
-- [ ] Display groups and entries without duplicating the decrypted database model in Kotlin.
+- [x] Display groups and entries without duplicating the decrypted database model in Kotlin.
+  - [x] Add bounded production SAF ingestion for unlock (`64 MiB` KDBX, `1 MiB` key file) and preserve the composite-key distinction between absent and deliberately empty password material.
+  - [x] Keep the production browser state to one opaque Rust handle plus the currently displayed bounded vault/group/entry summaries; cap a displayed group at 1,024 direct items until a paged/query API exists.
+  - [x] Keep master-password handling byte-oriented: disable Android view-state persistence/autofill for the editor, consume UTF-8 bytes without creating a Kotlin `String`, and clear transient credential/file buffers after use.
+  - [x] Fail closed across lifecycle races: foreground/background epochs invalidate in-flight unlock/browse work, late handles are locked before publication, and `onStop()` clears transient credential UI then invokes Rust `lock-all`.
+  - [x] Gate the production path with a dedicated source-policy self-test plus production APK build/JNI-packaging/no-broad-storage checks and a real emulator Compose → DocumentsUI SAF handoff.
 - [ ] Implement search/filtering through Rust-backed handles/queries.
 - [ ] Implement controlled clipboard copy with timeout/clear behavior and sensitive-content handling.
 - [ ] Implement configurable auto-lock and explicit lock.
@@ -239,8 +244,8 @@ Before production release:
 
 There is no known external organizational blocker and no open GitHub issue currently blocking work. The active blockers are technical gates owned by this project:
 
-1. **Production Android vault use is no longer blocked on JNI reachability, lifecycle/error-boundary hardening, owner/bridge stress coverage, production module wiring, Compose/navigation, scoped SAF selection, or the first metadata-only read boundary.** Adapter ABI v4 exposes exactly six approved JNI functions: the five lifecycle operations plus one bounded `nativeReadMetadata` channel. The next blocker is wiring real production open/browse state to those summaries without duplicating decrypted vault state in Kotlin.
-2. **Metadata listing is implemented; explicit secret retrieval remains deliberately blocked behind a separate audited tranche.** Phase-1 browsing must first consume the bounded summaries while preserving Rust-only decrypted-state ownership, opaque handles, sanitized errors and explicit lock semantics. Password/TOTP values, notes/custom secret fields and attachment content must not be added opportunistically to the metadata channel.
+1. **Production Android open/browse is implemented and no longer blocks Phase 1.** Adapter ABI v4 still exposes exactly six approved JNI functions: the five lifecycle operations plus one bounded `nativeReadMetadata` channel. The next blocker is a bounded Rust-backed search/filter query design that returns only identities/summaries needed for the visible result set rather than copying or scanning an independent decrypted model in Kotlin.
+2. **Explicit secret retrieval remains deliberately blocked behind a separate audited tranche.** Production browsing now consumes the bounded summaries while preserving Rust-only decrypted-state ownership, opaque handles, sanitized errors and explicit lock semantics. Password/OTP values, notes/custom secret fields and attachment content must not be added opportunistically to metadata or the upcoming search channel.
 3. **Production write exposure remains constrained by the documented KDBX 4.1-only initial write envelope and must continue to preserve the established unknown-XML fail-closed and independent-reference interoperability gates as the API grows.**
 4. **Public release is blocked on completing Phases 0–6 and the release gate, including a fresh dependency/license/security review of the exact versions shipped.**
 
@@ -257,7 +262,12 @@ There is no known external organizational blocker and no open GitHub issue curre
 5. [x] Establish the Material/Compose application shell and navigation architecture while keeping the five-export JNI surface frozen.
 6. [x] Add scoped Android SAF document selection with persistable URI grants and a built-APK gate forbidding broad storage/media permissions; keep Create UI-gated until a valid Rust KDBX 4.1 initializer exists.
 7. [x] Design and implement the first bounded **metadata-only** Rust/JNI read tranche (vault summary + group/entry summaries) before any explicit secret retrieval API.
-8. [ ] Display real vault groups and entries in the production Compose UI by traversing bounded Rust-backed summaries, without copying the decrypted database model into Kotlin and without adding secret retrieval yet.
+8. [x] Display real vault groups and entries in the production Compose UI by traversing bounded Rust-backed summaries, without copying the decrypted database model into Kotlin and without adding secret retrieval yet.
+   - [x] Select KDBX/key-file documents through scoped SAF, bound Android ingress, preserve nullable composite credentials, and clear temporary bytes.
+   - [x] Traverse only the current group through Rust-backed summaries and enforce a 1,024-direct-item UI ceiling until paging/query support exists.
+   - [x] Fail closed on background/lifecycle races and retain no vault handle in saved state, intents or bundles.
+   - [x] Prove production APK compilation/JNI packaging/no-broad-storage policy plus Compose → DocumentsUI SAF handoff on the emulator; retain the existing smoke-app Rust metadata/lifecycle proof.
+9. [ ] Design and implement bounded search/filtering through Rust-backed handles/queries, returning only metadata summaries/identities required for the visible result set and adding no secret retrieval yet.
 
 ## Completion status
 
