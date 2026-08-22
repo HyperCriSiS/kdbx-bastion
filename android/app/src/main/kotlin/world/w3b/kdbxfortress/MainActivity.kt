@@ -20,6 +20,7 @@ class MainActivity : ComponentActivity() {
     private var selectedDocument by mutableStateOf<VaultDocumentSelection?>(null)
     private var selectedKeyFile by mutableStateOf<VaultDocumentSelection?>(null)
     private var browserState by mutableStateOf<VaultBrowserState>(VaultBrowserState.Locked)
+    private var credentialClearEpoch by mutableStateOf(0L)
 
     private lateinit var documentPicker: VaultDocumentPicker
     private lateinit var sessionController: VaultSessionController
@@ -40,11 +41,13 @@ class MainActivity : ComponentActivity() {
         documentPicker = VaultDocumentPicker(
             activity = this,
             onSelected = { selection ->
+                credentialClearEpoch += 1L
                 sessionController.lockAndReset()
                 selectedDocument = selection
                 selectedKeyFile = null
             },
             onKeyFileSelected = { selection ->
+                credentialClearEpoch += 1L
                 sessionController.lockAndReset()
                 selectedKeyFile = selection
             },
@@ -61,10 +64,12 @@ class MainActivity : ComponentActivity() {
                     selectedDocumentName = selectedDocument?.displayName,
                     selectedDocumentPersistent = selectedDocument?.persistentAccess == true,
                     selectedKeyFileName = selectedKeyFile?.displayName,
+                    credentialClearEpoch = credentialClearEpoch,
                     browserState = browserState,
                     onOpenVault = documentPicker::openVault,
                     onSelectKeyFile = documentPicker::openKeyFile,
                     onClearKeyFile = {
+                        credentialClearEpoch += 1L
                         sessionController.lockAndReset()
                         selectedKeyFile = null
                     },
@@ -101,6 +106,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        credentialClearEpoch += 1L
         sessionController.onBackgrounded()
         super.onStop()
     }

@@ -118,7 +118,7 @@ class VaultSessionController(
                 publish(token, VaultBrowserState.Failure(error.reason))
             } catch (error: NativeBridge.NativeBoundaryException) {
                 publish(token, VaultBrowserState.Failure(mapNativeFailure(error.failure)))
-            } catch (_: RuntimeException) {
+            } catch (_: Exception) {
                 publish(token, VaultBrowserState.Failure(VaultBrowserFailure.CoreFailure))
             } finally {
                 if (newHandle > 0L) safeLock(newHandle)
@@ -155,7 +155,7 @@ class VaultSessionController(
                     mapNativeFailure(error.failure)
                 }
                 failBrowse(token, failure)
-            } catch (_: RuntimeException) {
+            } catch (_: Exception) {
                 failBrowse(token, VaultBrowserFailure.CoreFailure)
             }
         }

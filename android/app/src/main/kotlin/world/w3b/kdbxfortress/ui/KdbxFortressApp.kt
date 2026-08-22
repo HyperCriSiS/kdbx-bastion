@@ -58,6 +58,7 @@ fun KdbxFortressApp(
     selectedDocumentName: String?,
     selectedDocumentPersistent: Boolean,
     selectedKeyFileName: String?,
+    credentialClearEpoch: Long,
     browserState: VaultBrowserState,
     onOpenVault: () -> Unit,
     onSelectKeyFile: () -> Unit,
@@ -121,6 +122,7 @@ fun KdbxFortressApp(
                     selectedDocumentName = selectedDocumentName,
                     selectedDocumentPersistent = selectedDocumentPersistent,
                     selectedKeyFileName = selectedKeyFileName,
+                    credentialClearEpoch = credentialClearEpoch,
                     browserState = browserState,
                     onOpenVault = onOpenVault,
                     onSelectKeyFile = onSelectKeyFile,
@@ -151,6 +153,7 @@ private fun VaultScreen(
     selectedDocumentName: String?,
     selectedDocumentPersistent: Boolean,
     selectedKeyFileName: String?,
+    credentialClearEpoch: Long,
     browserState: VaultBrowserState,
     onOpenVault: () -> Unit,
     onSelectKeyFile: () -> Unit,
@@ -173,6 +176,7 @@ private fun VaultScreen(
             selectedDocumentName = selectedDocumentName,
             selectedDocumentPersistent = selectedDocumentPersistent,
             selectedKeyFileName = selectedKeyFileName,
+            credentialClearEpoch = credentialClearEpoch,
             browserState = browserState,
             onOpenVault = onOpenVault,
             onSelectKeyFile = onSelectKeyFile,
@@ -190,6 +194,7 @@ private fun VaultUnlock(
     selectedDocumentName: String?,
     selectedDocumentPersistent: Boolean,
     selectedKeyFileName: String?,
+    credentialClearEpoch: Long,
     browserState: VaultBrowserState,
     onOpenVault: () -> Unit,
     onSelectKeyFile: () -> Unit,
@@ -261,14 +266,24 @@ private fun VaultUnlock(
                 modifier = Modifier.fillMaxWidth(),
                 factory = { context ->
                     EditText(context).apply {
-                        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                        inputType = InputType.TYPE_CLASS_TEXT or
+                            InputType.TYPE_TEXT_VARIATION_PASSWORD or
+                            InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
                         hint = context.getString(R.string.vault_password_hint)
                         isSingleLine = true
+                        isSaveEnabled = false
                         importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+                        tag = credentialClearEpoch
                         passwordEditor.value = this
                     }
                 },
-                update = { editor -> passwordEditor.value = editor },
+                update = { editor ->
+                    if (editor.tag != credentialClearEpoch) {
+                        editor.text?.clear()
+                        editor.tag = credentialClearEpoch
+                    }
+                    passwordEditor.value = editor
+                },
             )
 
             Button(

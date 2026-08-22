@@ -34,7 +34,7 @@ private fun ContentResolver.readBoundedBytes(uri: Uri, maximumBytes: Long): Byte
 
     val initialCapacity = declaredSize
         ?.takeIf { it > 0L }
-        ?.coerceAtMost(maximumBytes)
+        ?.coerceAtMost(MAX_INITIAL_CAPACITY_BYTES.toLong())
         ?.toInt()
         ?: DEFAULT_BUFFER_BYTES
 
@@ -44,7 +44,7 @@ private fun ContentResolver.readBoundedBytes(uri: Uri, maximumBytes: Long): Byte
     try {
         val input = try {
             openInputStream(uri)
-        } catch (_: RuntimeException) {
+        } catch (_: Exception) {
             null
         } ?: throw VaultDocumentReadException(VaultDocumentReadException.Reason.Unavailable)
 
@@ -103,3 +103,4 @@ private class ZeroingByteArrayOutputStream(initialCapacity: Int) :
 }
 
 private const val DEFAULT_BUFFER_BYTES = 16 * 1024
+private const val MAX_INITIAL_CAPACITY_BYTES = 1024 * 1024
