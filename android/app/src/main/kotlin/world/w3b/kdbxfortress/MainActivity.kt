@@ -76,7 +76,7 @@ class MainActivity : ComponentActivity() {
                     onUnlockVault = { password ->
                         val document = selectedDocument
                         if (document == null) {
-                            password.fill(0)
+                            password?.fill(0)
                         } else {
                             sessionController.unlock(
                                 vaultDocument = document,
