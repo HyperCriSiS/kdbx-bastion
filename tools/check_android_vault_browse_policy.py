@@ -165,7 +165,7 @@ def self_test(root: Path) -> None:
 
     mutated = dict(sources)
     mutated["access"] += "\nfun forbidden() = stream.readBytes()\n"
-    expect_failure(mutated, "readBytes()")
+    expect_failure(mutated, ".readBytes(")
 
     mutated = dict(sources)
     mutated["ui"] = mutated["ui"].replace(
